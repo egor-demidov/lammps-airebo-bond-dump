@@ -21,6 +21,19 @@
      Thomas C. O'Connor (JHU) 2014
 ------------------------------------------------------------------------- */
 
+/* Parameters for bond order dumps */
+#include <filesystem>
+#include <sstream>
+#include <fstream>
+
+static constexpr long BO_DUMP_PERIOD = 1000ul;  // Perform bond order dumps every N steps
+static long BO_STEP_COUNTER = 0ul;              // Count of steps (based on AIREBO evaluations)
+
+static const std::filesystem::path BO_DUMP_PREFIX = "";
+
+static constexpr bool PERFORM_BO_DUMPS = true;  // Toggle bond order dumps
+/* End parameters for bond order dumps */
+
 #include "pair_airebo.h"
 
 #include "atom.h"
@@ -424,6 +437,9 @@ void PairAIREBO::FREBO(int eflag)
   double dwij,del[3];
   int *ilist,*REBO_neighs;
 
+  std::ofstream bo_dump_file;
+  bool perform_bo_dump_on_this_step;
+
   evdwl = 0.0;
 
   double **x = atom->x;
@@ -435,6 +451,15 @@ void PairAIREBO::FREBO(int eflag)
 
   inum = list->inum;
   ilist = list->ilist;
+
+  perform_bo_dump_on_this_step = BO_STEP_COUNTER % BO_DUMP_PERIOD == 0;
+
+  // Perform a bond order dump
+  if (perform_bo_dump_on_this_step) {
+    std::stringstream bo_dump_file_name;
+    bo_dump_file_name << "bo_dump_" << BO_STEP_COUNTER / BO_DUMP_PERIOD << ".txt";
+    bo_dump_file = std::ofstream(bo_dump_file_name.str());
+  }
 
   // two-body interactions from REBO neighbor list, skip half of them
 
@@ -493,6 +518,9 @@ void PairAIREBO::FREBO(int eflag)
       bij = bondorder(i,j,del,rij,VA,f);
       dVAdi = bij*dVA;
 
+      // Write out bond order information
+      bo_dump_file << i << " " << j << " " << bij << "\n";
+
       fpair = -(dVRdi+dVAdi) / rij;
       f[i][0] += delx*fpair;
       f[i][1] += dely*fpair;
@@ -506,6 +534,8 @@ void PairAIREBO::FREBO(int eflag)
                            evdwl,0.0,fpair,delx,dely,delz);
     }
   }
+
+  BO_STEP_COUNTER ++;
 }
 
 /* ----------------------------------------------------------------------
