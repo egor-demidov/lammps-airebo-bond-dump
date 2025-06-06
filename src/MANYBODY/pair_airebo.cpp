@@ -23,15 +23,12 @@
 
 /* Parameters for bond order dumps */
 #include <filesystem>
-#include <iostream>
 #include <sstream>
 #include <fstream>
-#include <vector>
 
-//#include <mpi/mpi.h>
-#include <mpi.h>
+#include <mpi/mpi.h>
 
-static constexpr long BO_DUMP_PERIOD = 100ul;  // Perform bond order dumps every N steps
+static constexpr long BO_DUMP_PERIOD = 5000ul;  // Perform bond order dumps every N steps
 static long BO_STEP_COUNTER = 0ul;              // Count of steps (based on AIREBO evaluations)
 
 static const std::filesystem::path BO_DUMP_PREFIX = "";
@@ -40,63 +37,16 @@ static constexpr bool PERFORM_BO_DUMPS = false;  // Toggle bond order dumps
 
 static bool BO_DUMP_WRITER_INITIALIZED = false;
 
-static int bo_mpi_rank = -1, bo_mpi_size = -1;
-
-static std::vector<int> bo_tag1, bo_tag2;
-static std::vector<double> bo_bond_orders;
+long mpi_rank = -1, mpi_size = -1;
 
 void initialize_bo_dump_writer() {
     if (BO_DUMP_WRITER_INITIALIZED)
-        return;
+      return;
 
-    BO_DUMP_WRITER_INITIALIZED = true;
+  BO_DUMP_WRITER_INITIALIZED = true;
 
-    MPI_Comm_rank(MPI_COMM_WORLD, &bo_mpi_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &bo_mpi_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, )
 }
-
-void append_bo_information(int tag1, int tag2, double bond_order) {
-    bo_tag1.emplace_back(tag1);
-    bo_tag2.emplace_back(tag2);
-    bo_bond_orders.emplace_back(bond_order);
-}
-
-void commit_bo_information() {
-
-    // If this is a root process, build a global bond order buffer
-    if (bo_mpi_rank == 0) {
-        // Iterate over child processes
-        for (int i = 1; i < bo_mpi_size; i ++) {
-            std::cerr << "RANK " << bo_mpi_rank << " SIZE " << bo_mpi_size << " RECEIVE FROM " << i << std::endl;
-
-            // Receive the number of atoms in that rank
-            unsigned long num_atoms;
-            MPI_Recv(&num_atoms, 1, MPI_UNSIGNED_LONG, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-            // Allocate the buffers;
-            std::vector<int> tag1_received(num_atoms), tag2_received(num_atoms);
-            std::vector<double> bond_orders_received(num_atoms);
-            MPI_Recv(&tag1_received, num_atoms, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MPI_Recv(&tag2_received, num_atoms, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MPI_Recv(&bond_orders_received, num_atoms, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        }
-
-    // If this is a child process, send data to root
-    } else {
-        // First, communicate the number of atoms
-        unsigned long num_atoms = bo_tag1.size();
-        MPI_Send(&num_atoms, 1, MPI_UNSIGNED_LONG, 0, 0, MPI_COMM_WORLD);
-        // Now send the three buffers
-        MPI_Send(&bo_tag1[0], num_atoms, MPI_INT, 0, 0, MPI_COMM_WORLD);
-        MPI_Send(&bo_tag2[0], num_atoms, MPI_INT, 0, 0, MPI_COMM_WORLD);
-        MPI_Send(&bo_bond_orders[0], num_atoms, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-    }
-
-    bo_tag1.clear();
-    bo_tag2.clear();
-    bo_bond_orders.clear();
-}
-
 /* End parameters for bond order dumps */
 
 #include "pair_airebo.h"
@@ -517,17 +467,20 @@ void PairAIREBO::FREBO(int eflag)
   inum = list->inum;
   ilist = list->ilist;
 
-  perform_bo_dump_on_this_step = BO_STEP_COUNTER % BO_DUMP_PERIOD == 0 && BO_STEP_COUNTER > 0;
+  perform_bo_dump_on_this_step = BO_STEP_COUNTER % BO_DUMP_PERIOD == 0;
 
-  // Initialize BO writer state if not already initialized
-  if (perform_bo_dump_on_this_step)
-        initialize_bo_dump_writer();
+  // Perform a bond order dump
+  // TODO: check if BO writer is initialized
 
-//  if (perform_bo_dump_on_this_step) {
-//    std::stringstream bo_dump_file_name;
-//    bo_dump_file_name << "bo_dump_" << BO_STEP_COUNTER / BO_DUMP_PERIOD << ".txt";
-//    bo_dump_file = std::ofstream(bo_dump_file_name.str());
-//  }
+  int mpi_rank, mpi_size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+
+  if (perform_bo_dump_on_this_step) {
+    std::stringstream bo_dump_file_name;
+    bo_dump_file_name << "bo_dump_" << BO_STEP_COUNTER / BO_DUMP_PERIOD << ".txt";
+    bo_dump_file = std::ofstream(bo_dump_file_name.str());
+  }
 
   // two-body interactions from REBO neighbor list, skip half of them
 
@@ -587,9 +540,7 @@ void PairAIREBO::FREBO(int eflag)
       dVAdi = bij*dVA;
 
       // Write out bond order information
-      if (perform_bo_dump_on_this_step)
-          append_bo_information(itag, jtag, bij);
-//      bo_dump_file << i << " " << j << " " << bij << "\n";
+      bo_dump_file << i << " " << j << " " << bij << "\n";
 
       fpair = -(dVRdi+dVAdi) / rij;
       f[i][0] += delx*fpair;
@@ -605,8 +556,6 @@ void PairAIREBO::FREBO(int eflag)
     }
   }
 
-  if (perform_bo_dump_on_this_step)
-      commit_bo_information();
   BO_STEP_COUNTER ++;
 }
 
