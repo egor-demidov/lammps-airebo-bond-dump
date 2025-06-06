@@ -26,27 +26,12 @@
 #include <sstream>
 #include <fstream>
 
-#include <mpi/mpi.h>
-
-static constexpr long BO_DUMP_PERIOD = 5000ul;  // Perform bond order dumps every N steps
+static constexpr long BO_DUMP_PERIOD = 1000ul;  // Perform bond order dumps every N steps
 static long BO_STEP_COUNTER = 0ul;              // Count of steps (based on AIREBO evaluations)
 
 static const std::filesystem::path BO_DUMP_PREFIX = "";
 
-static constexpr bool PERFORM_BO_DUMPS = false;  // Toggle bond order dumps
-
-static bool BO_DUMP_WRITER_INITIALIZED = false;
-
-long mpi_rank = -1, mpi_size = -1;
-
-void initialize_bo_dump_writer() {
-    if (BO_DUMP_WRITER_INITIALIZED)
-      return;
-
-  BO_DUMP_WRITER_INITIALIZED = true;
-
-  MPI_Comm_rank(MPI_COMM_WORLD, )
-}
+static constexpr bool PERFORM_BO_DUMPS = true;  // Toggle bond order dumps
 /* End parameters for bond order dumps */
 
 #include "pair_airebo.h"
@@ -470,12 +455,6 @@ void PairAIREBO::FREBO(int eflag)
   perform_bo_dump_on_this_step = BO_STEP_COUNTER % BO_DUMP_PERIOD == 0;
 
   // Perform a bond order dump
-  // TODO: check if BO writer is initialized
-
-  int mpi_rank, mpi_size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
-
   if (perform_bo_dump_on_this_step) {
     std::stringstream bo_dump_file_name;
     bo_dump_file_name << "bo_dump_" << BO_STEP_COUNTER / BO_DUMP_PERIOD << ".txt";
