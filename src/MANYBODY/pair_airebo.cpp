@@ -25,13 +25,24 @@
 #include <filesystem>
 #include <sstream>
 #include <fstream>
+#include <cstdlib>
 
-static constexpr long BO_DUMP_PERIOD = 1000ul;  // Perform bond order dumps every N steps
+static long BO_DUMP_PERIOD = 1000ul;  // Perform bond order dumps every N steps
 static long BO_STEP_COUNTER = 0ul;              // Count of steps (based on AIREBO evaluations)
+static bool BO_WRITER_INITIALIZED = false;
+static bool PERFORM_BO_DUMPS = true;  // Toggle bond order dumps
 
-static const std::filesystem::path BO_DUMP_PREFIX = "";
+inline void initialize_bo_writer() {
+    if (!BO_WRITER_INITIALIZED) [[unlikely]] {
+        BO_WRITER_INITIALIZED = true;
 
-static constexpr bool PERFORM_BO_DUMPS = true;  // Toggle bond order dumps
+        char * bo_dump_period_env = getenv("BO_DUMP_PERIOD");
+        if (bo_dump_period_env != nullptr)
+            BO_DUMP_PERIOD = std::stol(bo_dump_period_env);
+
+        PERFORM_BO_DUMPS = getenv("PERFORM_BO_DUMPS") != nullptr;
+    }
+}
 /* End parameters for bond order dumps */
 
 #include "pair_airebo.h"
@@ -452,7 +463,9 @@ void PairAIREBO::FREBO(int eflag)
   inum = list->inum;
   ilist = list->ilist;
 
-  perform_bo_dump_on_this_step = BO_STEP_COUNTER % BO_DUMP_PERIOD == 0;
+  initialize_bo_writer();
+
+  perform_bo_dump_on_this_step = PERFORM_BO_DUMPS && BO_STEP_COUNTER % BO_DUMP_PERIOD == 0;
 
   // Perform a bond order dump
   if (perform_bo_dump_on_this_step) {
