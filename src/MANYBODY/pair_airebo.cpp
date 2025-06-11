@@ -519,7 +519,7 @@ void PairAIREBO::FREBO(int eflag)
       dVAdi = bij*dVA;
 
       // Write out bond order information
-      bo_dump_file << i << " " << j << " " << bij << "\n";
+      bo_dump_file << itag << " " << jtag << " " << bij << "\n";
 
       fpair = -(dVRdi+dVAdi) / rij;
       f[i][0] += delx*fpair;

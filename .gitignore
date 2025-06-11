@@ -1,5 +1,6 @@
 lammps-develop-env.sh
 .idea
+cmake/cmake-build-debug
 
 *~
 *.o
