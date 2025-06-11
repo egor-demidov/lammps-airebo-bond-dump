@@ -22,7 +22,6 @@
 ------------------------------------------------------------------------- */
 
 /* Parameters for bond order dumps */
-#include <filesystem>
 #include <sstream>
 #include <fstream>
 #include <cstdlib>
