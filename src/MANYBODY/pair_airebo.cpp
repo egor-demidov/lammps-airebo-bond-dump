@@ -33,6 +33,8 @@ static bool BO_WRITER_INITIALIZED = false;
 static bool PERFORM_BO_DUMPS = true;  // Toggle bond order dumps
 static int MPI_RANK = 0;
 
+#include <iostream>
+
 inline void initialize_bo_writer() {
     if (!BO_WRITER_INITIALIZED) [[unlikely]] {
         BO_WRITER_INITIALIZED = true;
@@ -43,7 +45,7 @@ inline void initialize_bo_writer() {
 
         PERFORM_BO_DUMPS = getenv("PERFORM_BO_DUMPS") != nullptr;
 
-        MPI_RANK = MPI_Comm_rank(MPI_COMM_WORLD, &MPI_RANK);
+        MPI_Comm_rank(MPI_COMM_WORLD, &MPI_RANK);
     }
 }
 /* End parameters for bond order dumps */
