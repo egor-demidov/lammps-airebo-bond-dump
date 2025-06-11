@@ -65,3 +65,5 @@ src/Makefile.package.settings-e
 /install/x64-GUI-MSVC
 /install
 .Rhistory
+
+!build-custom-lammps.sh
